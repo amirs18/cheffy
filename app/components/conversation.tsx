@@ -15,6 +15,8 @@ export function Conversation({ conversationId, onConversationSaved }: Conversati
   >([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
+  const [isGeneratingRecipe, setIsGeneratingRecipe] = useState(false);
+  const [generatedRecipeId, setGeneratedRecipeId] = useState<string | null>(null);
 
   // Load conversation when conversationId changes
   useEffect(() => {
@@ -146,6 +148,54 @@ export function Conversation({ conversationId, onConversationSaved }: Conversati
     }
   }, [user?.id, conversationHistory, onConversationSaved]);
 
+  const generateRecipe = useCallback(async () => {
+    if (!user?.id || conversationHistory.length === 0) {
+      console.log('No user or conversation history to generate recipe');
+      return;
+    }
+
+    setIsGeneratingRecipe(true);
+    setGeneratedRecipeId(null);
+    try {
+      const response = await fetch('/api/recipes/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: conversationHistory,
+          conversationTitle: `Conversation with AI - ${new Date().toLocaleString()}`,
+        }),
+      });
+
+      if (!response.ok) {
+        let errorMessage = 'Failed to generate recipe';
+        try {
+          const error = await response.json();
+          errorMessage = error.error || errorMessage;
+        } catch {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      console.log('Recipe generated:', data);
+      
+      if (data.recipe && data.recipe.id) {
+        setGeneratedRecipeId(data.recipe.id);
+        // Open recipe in a new tab
+        setTimeout(() => {
+          window.open(`/recipes/${data.recipe.id}`, '_blank');
+        }, 500);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('Error generating recipe:', message);
+      alert(`Error: ${message}`);
+    } finally {
+      setIsGeneratingRecipe(false);
+    }
+  }, [user?.id, conversationHistory]);
+
   return (
     <div className="flex flex-col items-center gap-4 w-full">
       <Orb getInputVolume={conversation.getInputVolume} getOutputVolume={conversation.getOutputVolume} />
@@ -180,7 +230,7 @@ export function Conversation({ conversationId, onConversationSaved }: Conversati
         )}
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap justify-center">
         <button
           onClick={startConversation}
           disabled={conversation.status === 'connected'}
@@ -202,7 +252,30 @@ export function Conversation({ conversationId, onConversationSaved }: Conversati
         >
           {isSaving ? 'Saving...' : 'Save Conversation'}
         </button>
+        <button
+          onClick={generateRecipe}
+          disabled={isGeneratingRecipe || conversationHistory.length === 0 || conversation.status === 'connected'}
+          className="px-4 py-2 bg-orange-500 text-white rounded disabled:bg-gray-300"
+        >
+          {isGeneratingRecipe ? 'Generating Recipe...' : 'Generate Recipe'}
+        </button>
       </div>
+
+      {generatedRecipeId && (
+        <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+          <p className="text-orange-800">
+            ✓ Recipe generated! Opening in a new tab...{' '}
+            <a
+              href={`/recipes/${generatedRecipeId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-semibold hover:text-orange-900"
+            >
+              View Recipe
+            </a>
+          </p>
+        </div>
+      )}
 
       <div className="flex flex-col items-center">
         <p>Status: {conversation.status}</p>

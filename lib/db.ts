@@ -117,3 +117,67 @@ export async function updateConversationTitle(
     throw error;
   }
 }
+export async function saveRecipe(
+  userId: string,
+  recipe: {
+    title: string;
+    description?: string;
+    ingredients: string[];
+    instructions: string[];
+    prepTime?: number;
+    cookTime?: number;
+    servings?: number;
+    difficulty?: string;
+    tags?: string[];
+    imageUrl?: string;
+  }
+) {
+  try {
+    const savedRecipe = await prisma.recipe.create({
+      data: {
+        userId,
+        ...recipe,
+      },
+    });
+    return savedRecipe;
+  } catch (error) {
+    console.error('Error saving recipe:', error);
+    throw error;
+  }
+}
+
+export async function getRecipe(recipeId: string) {
+  try {
+    const recipe = await prisma.recipe.findUnique({
+      where: { id: recipeId },
+    });
+    return recipe;
+  } catch (error) {
+    console.error('Error getting recipe:', error);
+    throw error;
+  }
+}
+
+export async function getUserRecipes(userId: string) {
+  try {
+    const recipes = await prisma.recipe.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return recipes;
+  } catch (error) {
+    console.error('Error getting user recipes:', error);
+    throw error;
+  }
+}
+
+export async function deleteRecipe(recipeId: string) {
+  try {
+    await prisma.recipe.delete({
+      where: { id: recipeId },
+    });
+  } catch (error) {
+    console.error('Error deleting recipe:', error);
+    throw error;
+  }
+}
