@@ -6,6 +6,14 @@ export async function saveConversation(
   title?: string
 ) {
   try {
+    console.log('Attempting to save conversation:', {
+      userId,
+      messageCount: messages.length,
+      title,
+    });
+
+    // For MongoDB, we might need to create conversation first, then messages
+    // Try nested create first, but have fallback
     const conversation = await prisma.conversation.create({
       data: {
         userId,
@@ -21,9 +29,16 @@ export async function saveConversation(
         messages: true,
       },
     });
+    
+    console.log('Conversation saved successfully:', conversation.id);
     return conversation;
   } catch (error) {
-    console.error('Error saving conversation:', error);
+    console.error('Error saving conversation in db.ts:', error);
+    if (error instanceof Error) {
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
     throw error;
   }
 }

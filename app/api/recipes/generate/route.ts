@@ -43,7 +43,9 @@ export async function POST(request: NextRequest) {
     // Prompt for recipe generation
     const systemPrompt = `You are a professional chef and recipe creator. Based on the conversation provided, create a structured recipe in JSON format.
 
-Return ONLY valid JSON with this exact structure (no markdown, no extra text):
+CRITICAL: Return ONLY valid JSON. Do NOT include markdown code blocks, do NOT include any explanatory text before or after the JSON. Return ONLY the raw JSON object starting with { and ending with }.
+
+Required JSON structure:
 {
   "title": "Recipe Name",
   "description": "Short description of the dish",
@@ -54,7 +56,9 @@ Return ONLY valid JSON with this exact structure (no markdown, no extra text):
   "servings": 4,
   "difficulty": "easy",
   "tags": ["tag1", "tag2"]
-}`;
+}
+
+Return ONLY the JSON object, nothing else.`;
 
     const userPrompt = `Based on this conversation, create a recipe:\n\n${conversationText}`;
 
@@ -69,14 +73,27 @@ Return ONLY valid JSON with this exact structure (no markdown, no extra text):
       maxOutputTokens: 2000,
     });
 
-    // Parse the JSON response
+    // Parse the JSON response - handle markdown code blocks and extra text
     let recipeData;
     try {
-      recipeData = JSON.parse(recipeText);
+      // Extract JSON from markdown code blocks if present
+      let jsonText = recipeText.trim();
+      
+      // Remove markdown code block markers (```json ... ``` or ``` ... ```)
+      jsonText = jsonText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+      
+      // Try to find JSON object in the text if there's extra content
+      const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        jsonText = jsonMatch[0];
+      }
+      
+      recipeData = JSON.parse(jsonText);
     } catch (e) {
       console.error('Failed to parse recipe JSON:', recipeText);
+      console.error('Parse error:', e);
       return NextResponse.json(
-        { error: 'Failed to parse generated recipe' },
+        { error: 'Failed to parse generated recipe', details: e instanceof Error ? e.message : String(e) },
         { status: 500 }
       );
     }
@@ -113,9 +130,35 @@ Return ONLY valid JSON with this exact structure (no markdown, no extra text):
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Error generating recipe:', errorMessage);
+    console.error('Full error:', error);
+    
+    // Check for specific error types
+    const errorString = errorMessage.toLowerCase();
+    let userFriendlyMessage = 'Failed to generate recipe';
+    let statusCode = 500;
+    
+    if (errorString.includes('overloaded') || errorString.includes('overload')) {
+      userFriendlyMessage = 'The AI service is currently overloaded. Please try again in a few moments.';
+      statusCode = 503; // Service Unavailable
+    } else if (errorString.includes('rate limit') || errorString.includes('quota')) {
+      userFriendlyMessage = 'Rate limit exceeded. Please wait a moment before trying again.';
+      statusCode = 429; // Too Many Requests
+    } else if (errorString.includes('api key') || errorString.includes('authentication')) {
+      userFriendlyMessage = 'API authentication failed. Please check your API key configuration.';
+      statusCode = 401;
+    } else if (errorString.includes('timeout') || errorString.includes('timed out')) {
+      userFriendlyMessage = 'Request timed out. Please try again.';
+      statusCode = 504; // Gateway Timeout
+    } else {
+      userFriendlyMessage = `Failed to generate recipe: ${errorMessage}`;
+    }
+    
     return NextResponse.json(
-      { error: `Failed to generate recipe: ${errorMessage}` },
-      { status: 500 }
+      { 
+        error: userFriendlyMessage,
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      },
+      { status: statusCode }
     );
   }
 }
