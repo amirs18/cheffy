@@ -42,6 +42,7 @@ export default function ClientWrapper({ children }: ClientWrapperProps) {
                         ElevenLabs Agents
                     </h1>
                     <AnamConversation
+                        conversationId={selectedConversationId}
                         onConversationSaved={handleConversationSaved}
                     />
                 </div>

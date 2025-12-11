@@ -12,16 +12,19 @@ interface Message {
 }
 
 interface AnamConversationProps {
+    conversationId?: string;
     onConversationSaved?: () => void;
 }
 
 export function AnamConversation({
+    conversationId,
     onConversationSaved,
 }: AnamConversationProps) {
     const { user, isLoaded: isUserLoaded } = useUser();
     const [messages, setMessages] = useState<Message[]>([]);
     const [isConnected, setIsConnected] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingConversation, setIsLoadingConversation] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [isGeneratingRecipe, setIsGeneratingRecipe] = useState(false);
@@ -32,6 +35,59 @@ export function AnamConversation({
     const [isRetryableError, setIsRetryableError] = useState(false);
     const anamClientRef = useRef<AnamClient | null>(null);
     const cleanupRef = useRef<(() => void) | null>(null);
+
+    // Load conversation when conversationId changes
+    useEffect(() => {
+        if (!conversationId) {
+            setMessages([]);
+            return;
+        }
+
+        setIsLoadingConversation(true);
+        const loadConversation = async () => {
+            try {
+                console.log("Loading conversation:", conversationId);
+                const response = await fetch(
+                    `/api/conversations/${conversationId}`
+                );
+
+                if (!response.ok) {
+                    console.error(
+                        "Failed to load:",
+                        response.status,
+                        response.statusText
+                    );
+                    throw new Error("Failed to load conversation");
+                }
+
+                const data = await response.json();
+                console.log("Loaded data:", data);
+
+                if (data.conversation && data.conversation.messages) {
+                    // Convert API format to Anam message format
+                    const loadedMessages = data.conversation.messages.map(
+                        (msg: { role: string; content: string }) => ({
+                            role: msg.role === "user" ? "user" : "agent",
+                            text: msg.content,
+                            timestamp: new Date(),
+                        })
+                    );
+                    console.log("Mapped messages:", loadedMessages);
+                    setMessages(loadedMessages);
+                } else {
+                    console.log("No messages found in response");
+                    setMessages([]);
+                }
+            } catch (error) {
+                console.error("Error loading conversation:", error);
+                setMessages([]);
+            } finally {
+                setIsLoadingConversation(false);
+            }
+        };
+
+        loadConversation();
+    }, [conversationId]);
 
     const startConversation = useCallback(async () => {
         try {
@@ -428,12 +484,20 @@ export function AnamConversation({
             </div>
 
             {/* Messages Display */}
-            {messages.length > 0 && (
-                <div className="flex flex-col gap-3 max-h-64 overflow-y-auto p-4 bg-gray-50 rounded-lg border">
-                    <h3 className="font-semibold text-gray-700 sticky top-0 bg-gray-50">
-                        Conversation
-                    </h3>
-                    {messages.map((msg, idx) => (
+            <div className="flex flex-col gap-3 max-h-64 overflow-y-auto p-4 bg-gray-50 rounded-lg border">
+                <h3 className="font-semibold text-gray-700 sticky top-0 bg-gray-50">
+                    Conversation
+                </h3>
+                {isLoadingConversation ? (
+                    <div className="flex items-center justify-center py-8">
+                        <p className="text-gray-500">Loading conversation...</p>
+                    </div>
+                ) : messages.length === 0 ? (
+                    <div className="flex items-center justify-center py-8 text-gray-400">
+                        <p>Start a conversation or select a saved one...</p>
+                    </div>
+                ) : (
+                    messages.map((msg, idx) => (
                         <div key={idx} className="flex flex-col gap-1">
                             <p className="text-xs text-gray-500">
                                 {msg.role === "user" ? "You" : "Agent"} •{" "}
@@ -449,9 +513,9 @@ export function AnamConversation({
                                 {msg.text}
                             </p>
                         </div>
-                    ))}
-                </div>
-            )}
+                    ))
+                )}
+            </div>
 
             {/* Recipe Generation Success */}
             {generatedRecipeId && (
