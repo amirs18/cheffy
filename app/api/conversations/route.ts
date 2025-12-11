@@ -1,6 +1,6 @@
 import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { saveConversation } from '@/lib/db';
+import { saveConversation, getUserConversations } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,10 +56,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Note: You would need to import and use getUserConversations from lib/db
-    // This is a placeholder - the actual implementation depends on your needs
+    const conversations = await getUserConversations(userId);
+
     return NextResponse.json(
-      { message: 'GET /api/conversations - implement as needed' },
+      {
+        success: true,
+        conversations,
+      },
       { status: 200 }
     );
   } catch (error) {
