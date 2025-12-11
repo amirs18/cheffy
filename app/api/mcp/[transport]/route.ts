@@ -1,9 +1,9 @@
-import { createMcpRouteHandler } from '@vercel/mcp-adapter';
+import { createMcpHandler } from '@vercel/mcp-adapter';
 import { z } from 'zod';
 import { saveEvent, getEvent, getAllEvents } from '@/lib/db';
 
 // Create the MCP handler with event tools
-const handler = createMcpRouteHandler(
+const handler = createMcpHandler(
   async (server) => {
     // Tool: Create a new event
     server.tool(
@@ -107,7 +107,8 @@ const handler = createMcpRouteHandler(
 
           const eventsList = events
             .map(
-              (event) =>
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (event:any) =>
                 `- ${event.name} (ID: ${event.id})\n  Description: ${event.description}\n  Fires At: ${event.fireAt.toISOString()}`
             )
             .join('\n\n');

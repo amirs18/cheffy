@@ -196,3 +196,47 @@ export async function deleteRecipe(recipeId: string) {
     throw error;
   }
 }
+
+export async function saveEvent(
+  name: string,
+  description: string,
+  fireAt: Date
+) {
+  try {
+    const event = await prisma.event.create({
+      data: {
+        name,
+        description,
+        fireAt,
+      },
+    });
+    return event;
+  } catch (error) {
+    console.error('Error saving event:', error);
+    throw error;
+  }
+}
+
+export async function getEvent(eventId: string) {
+  try {
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+    });
+    return event;
+  } catch (error) {
+    console.error('Error getting event:', error);
+    throw error;
+  }
+}
+
+export async function getAllEvents() {
+  try {
+    const events = await prisma.event.findMany({
+      orderBy: { fireAt: 'asc' },
+    });
+    return events;
+  } catch (error) {
+    console.error('Error getting all events:', error);
+    throw error;
+  }
+}
