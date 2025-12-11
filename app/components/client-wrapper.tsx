@@ -41,7 +41,9 @@ export default function ClientWrapper({ children }: ClientWrapperProps) {
                     <h1 className="text-4xl font-bold mb-8 text-center">
                         ElevenLabs Agents
                     </h1>
-                    <AnamConversation/>
+                    <AnamConversation
+                        onConversationSaved={handleConversationSaved}
+                    />
                 </div>
             </div>
         </main>
