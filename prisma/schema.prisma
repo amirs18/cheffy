@@ -27,3 +27,20 @@ model Message {
   content        String
   createdAt      DateTime     @default(now())
 }
+
+model Recipe {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String   // Clerk user ID - who created it
+  title           String
+  description     String?
+  ingredients     String[] // Array of ingredient strings
+  instructions    String[] // Array of instruction steps
+  prepTime        Int?     // In minutes
+  cookTime        Int?     // In minutes
+  servings        Int?
+  difficulty      String?  // "easy", "medium", "hard"
+  tags            String[] // Categories/tags like "vegetarian", "gluten-free"
+  imageUrl        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
