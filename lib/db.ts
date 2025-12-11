@@ -1,0 +1,119 @@
+import { prisma } from './prisma';
+
+export async function saveConversation(
+  userId: string,
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  title?: string
+) {
+  try {
+    const conversation = await prisma.conversation.create({
+      data: {
+        userId,
+        title,
+        messages: {
+          create: messages.map((msg) => ({
+            role: msg.role,
+            content: msg.content,
+          })),
+        },
+      },
+      include: {
+        messages: true,
+      },
+    });
+    return conversation;
+  } catch (error) {
+    console.error('Error saving conversation:', error);
+    throw error;
+  }
+}
+
+export async function getConversation(conversationId: string) {
+  try {
+    const conversation = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+    return conversation;
+  } catch (error) {
+    console.error('Error getting conversation:', error);
+    throw error;
+  }
+}
+
+export async function getUserConversations(userId: string) {
+  try {
+    const conversations = await prisma.conversation.findMany({
+      where: { userId },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'asc' },
+          take: 1, // Only get the first message as preview
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+    return conversations;
+  } catch (error) {
+    console.error('Error getting user conversations:', error);
+    throw error;
+  }
+}
+
+export async function addMessageToConversation(
+  conversationId: string,
+  role: 'user' | 'assistant',
+  content: string
+) {
+  try {
+    const message = await prisma.message.create({
+      data: {
+        conversationId,
+        role,
+        content,
+      },
+    });
+
+    // Update the conversation's updatedAt timestamp
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: { updatedAt: new Date() },
+    });
+
+    return message;
+  } catch (error) {
+    console.error('Error adding message to conversation:', error);
+    throw error;
+  }
+}
+
+export async function deleteConversation(conversationId: string) {
+  try {
+    await prisma.conversation.delete({
+      where: { id: conversationId },
+    });
+  } catch (error) {
+    console.error('Error deleting conversation:', error);
+    throw error;
+  }
+}
+
+export async function updateConversationTitle(
+  conversationId: string,
+  title: string
+) {
+  try {
+    const conversation = await prisma.conversation.update({
+      where: { id: conversationId },
+      data: { title },
+    });
+    return conversation;
+  } catch (error) {
+    console.error('Error updating conversation title:', error);
+    throw error;
+  }
+}
